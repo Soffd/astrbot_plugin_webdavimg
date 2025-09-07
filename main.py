@@ -29,15 +29,10 @@ class WebDAVGalleryPlugin(Star):
         self.webdav_username = config.get("webdav_username", "")
         self.webdav_password = config.get("webdav_password", "")
         self.base_path = config.get("base_path", "/astrbot_gallery/")
-        
-        # 初始化WebDAV客户端
+        # 处理路径和元数据
         self.webdav_client = None
         self.init_webdav_client()
-        
-        # 图片元数据文件
         self.metadata_file = "gallery_metadata.json"
-        
-        # 确保基础路径存在
         self.ensure_base_path()
 
     def init_webdav_client(self):
@@ -54,7 +49,6 @@ class WebDAVGalleryPlugin(Star):
         
         try:
             self.webdav_client = Client(options)
-            # 测试连接
             self.webdav_client.list()
             logger.info("WebDAV连接成功")
         except Exception as e:
@@ -78,20 +72,18 @@ class WebDAVGalleryPlugin(Star):
         try:
             image_obj = next(
                 (msg for msg in event.get_messages() 
-                 if isinstance(msg, Image) and msg.file == file_id),  # 修复：直接使用 Image
+                 if isinstance(msg, Image) and msg.file == file_id),
                 None
             )
         
             if not image_obj:
                 return ""
         
-            # 尝试直接获取文件路径
             file_path = await image_obj.convert_to_file_path()
             if file_path and os.path.exists(file_path):
                 with open(file_path, "rb") as f:
                     data = f.read()
             else:
-                # 通过API获取图片
                 client = event.bot
                 result = await client.api.call_action("get_image", file_id=file_id)
                 file_path = result.get("file")
@@ -100,7 +92,6 @@ class WebDAVGalleryPlugin(Star):
                 with open(file_path, "rb") as f:
                     data = f.read()
         
-            # 创建插件的临时文件
             temp_path = os.path.join(self.temp_dir, f"gallery_{int(time.time())}_{random.randint(1000, 9999)}.jpg")
             with open(temp_path, "wb") as f:
                 f.write(data)
@@ -117,16 +108,12 @@ class WebDAVGalleryPlugin(Star):
             return False
             
         try:
-            # 生成唯一文件名
             timestamp = int(time.time())
             random_str = random.randint(1000, 9999)
             filename = f"image_{timestamp}_{random_str}.jpg"
             remote_path = os.path.join(self.base_path, filename).replace("\\", "/")
-            
-            # 上传图片
             self.webdav_client.upload(remote_path, local_path)
             
-            # 更新元数据
             metadata = await self.get_metadata()
             metadata.append({
                 "filename": filename,
@@ -135,16 +122,13 @@ class WebDAVGalleryPlugin(Star):
                 "upload_time": datetime.now().isoformat()
             })
             
-            # 保存元数据
             metadata_path = os.path.join(self.temp_dir, self.metadata_file)
             with open(metadata_path, 'w', encoding='utf-8') as f:
                 json.dump(metadata, f, ensure_ascii=False, indent=2)
                 
-            # 上传元数据文件
             remote_metadata_path = os.path.join(self.base_path, self.metadata_file).replace("\\", "/")
             self.webdav_client.upload(remote_metadata_path, metadata_path)
             
-            # 清理临时元数据文件
             if os.path.exists(metadata_path):
                 os.remove(metadata_path)
                 
@@ -163,7 +147,6 @@ class WebDAVGalleryPlugin(Star):
             remote_metadata_path = os.path.join(self.base_path, self.metadata_file).replace("\\", "/")
             local_metadata_path = os.path.join(self.temp_dir, self.metadata_file)
             
-            # 下载元数据文件
             if self.webdav_client.check(remote_metadata_path):
                 self.webdav_client.download(remote_metadata_path, local_metadata_path)
                 
@@ -191,7 +174,7 @@ class WebDAVGalleryPlugin(Star):
         return random.choice(metadata)
 
     async def cleanup_files(self, paths: list):
-        """异步清理临时文件，支持多个文件路径"""
+        """异步清理临时文件"""
         await asyncio.sleep(3)
         for path in paths:
             if path and os.path.exists(path):
@@ -217,12 +200,8 @@ class WebDAVGalleryPlugin(Star):
         text_messages = [msg for msg in messages if isinstance(msg, Plain)]
         
         if text_messages:
-            # 获取完整的文本内容
             full_text = text_messages[0].text.strip()
-            
-            # 只提取命令后面的部分作为描述
             if full_text.startswith("/上传图片"):
-                # 移除命令部分并去除前后空格
                 description_part = full_text[5:].strip()
                 
                 # 只有当有实际内容时才作为描述
@@ -236,8 +215,6 @@ class WebDAVGalleryPlugin(Star):
             if not temp_path:
                 yield event.plain_result("图片下载失败")
                 return
-                
-            # 上传到WebDAV
             success = await self.upload_to_webdav(temp_path, description)
             
             # 清理临时文件
@@ -271,14 +248,12 @@ class WebDAVGalleryPlugin(Star):
             temp_path = os.path.join(self.temp_dir, f"temp_{int(time.time())}.jpg")
             self.webdav_client.download(image_info["remote_path"], temp_path)
             
-            # 构建回复消息
             chain = []
             if image_info.get("description"):
                 chain.append(Plain(text=f"图片描述: {image_info['description']}"))
             
             chain.append(Image.fromFileSystem(temp_path))
-            
-            # 安排清理临时文件
+            # 清理临时文件
             asyncio.create_task(self.cleanup_files([temp_path]))
             
             yield event.chain_result(chain)
