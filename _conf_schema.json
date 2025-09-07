@@ -1,0 +1,26 @@
+{
+  "webdav_url": {
+    "description": "WebDAV服务器地址",
+    "type": "string",
+    "hint": "WebDAV服务器的URL，例如: https://example.com/webdav/",
+    "obvious_hint": false
+  },
+  "webdav_username": {
+    "description": "WebDAV用户名",
+    "type": "string",
+    "hint": "用于登录WebDAV的用户名",
+    "obvious_hint": false
+  },
+  "webdav_password": {
+    "description": "WebDAV密码",
+    "type": "string",
+    "hint": "用于登录WebDAV的密码，敏感信息，请勿泄露",
+    "obvious_hint": true
+  },
+  "base_path": {
+    "description": "WebDAV基础路径",
+    "type": "string",
+    "default": "/astrbot_gallery/",
+    "hint": "图片存储的基础路径，以/开头和结尾"
+  }
+}
