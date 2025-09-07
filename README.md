@@ -1,0 +1,2 @@
+# astrbot_plugin_webdavimg
+使用WebDAV进行存储与发送图片的AstrBot插件
